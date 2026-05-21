@@ -8,7 +8,7 @@ from PIL import Image
 st.set_page_config(
     page_title="Reconocimiento óptico de Caracteres",
     page_icon="📷",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 
@@ -30,12 +30,12 @@ html, body, [class*="css"] {
 .block-container {
     padding-top: 3rem;
     padding-bottom: 3rem;
-    max-width: 900px;
+    max-width: 1100px;
 }
 
 h1 {
     text-align: center;
-    font-size: 2.8rem !important;
+    font-size: 2.7rem !important;
     font-weight: 800 !important;
     color: #f8fafc !important;
     margin-bottom: 0.7rem !important;
@@ -43,7 +43,7 @@ h1 {
 }
 
 h1::after {
-    content: "Captura una imagen, aplica el filtro si lo necesitas y extrae el texto automáticamente.";
+    content: "Captura o sube una imagen, aplica un filtro y extrae el texto automáticamente.";
     display: block;
     font-size: 1rem;
     font-weight: 400;
@@ -61,16 +61,26 @@ section[data-testid="stSidebar"] > div {
     padding-top: 2rem;
 }
 
-section[data-testid="stSidebar"] label {
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] span {
     color: #f8fafc !important;
-    font-weight: 700 !important;
 }
 
-.stRadio {
+section[data-testid="stSidebar"] hr {
+    border-color: rgba(148, 163, 184, 0.22);
+}
+
+.stRadio,
+.stFileUploader {
     background: rgba(15, 23, 42, 0.95);
     border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: 18px;
-    padding: 1.1rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
     box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
 }
 
@@ -122,26 +132,29 @@ button[data-testid="baseButton-secondary"]:hover {
     box-shadow: 0 18px 45px rgba(37, 99, 235, 0.48);
 }
 
-.stMarkdown, .stText, .stWrite {
+.ocr-result {
+    background: rgba(15, 23, 42, 0.82);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 24px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.25);
+}
+
+.ocr-result h3 {
+    margin-top: 0;
     color: #f8fafc;
 }
 
-div[data-testid="stMarkdownContainer"] {
-    color: #f8fafc;
-}
-
-div[data-testid="stImage"] {
-    border-radius: 22px;
-    overflow: hidden;
-}
-
-div[data-testid="stVerticalBlock"] > div:has(.stMarkdown) {
-    background: rgba(15, 23, 42, 0.72);
-    border-radius: 22px;
-}
-
-.stAlert {
+.ocr-help {
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: 18px;
+    padding: 1rem;
+    margin-top: 1rem;
+    color: #cbd5e1;
+    font-size: 0.92rem;
+    line-height: 1.55;
 }
 
 @media (max-width: 768px) {
@@ -170,24 +183,74 @@ div[data-testid="stVerticalBlock"] > div:has(.stMarkdown) {
 
 st.title("Reconocimiento óptico de Caracteres")
 
-img_file_buffer = st.camera_input("Toma una Foto")
 
 with st.sidebar:
-      filtro = st.radio("Aplicar Filtro",('Con Filtro', 'Sin Filtro'))
+    st.markdown("## ⚙️ Opciones")
+
+    st.markdown("### 📥 Fuente de imagen:")
+    fuente_imagen = st.radio(
+        "Selecciona la fuente:",
+        ("📷 Cámara", "🖼️ Subir imagen"),
+        label_visibility="collapsed"
+    )
+
+    st.markdown("### 🎨 Filtros de imagen")
+    filtro = st.radio(
+        "Selecciona un filtro:",
+        ("Sin filtro", "Invertir colores", "Escala de grises", "Alto contraste")
+    )
+
+    st.markdown("""
+    <div class="ocr-help">
+        <h3>📖 ¿Cómo funciona?</h3>
+        <p>OCR (Optical Character Recognition) analiza los píxeles de una imagen para identificar letras y palabras.</p>
+
+        <strong>Consejos para mejores resultados:</strong><br><br>
+        💡 Buena iluminación<br>
+        📄 Texto nítido y sin desenfoque<br>
+        ⬛ Buen contraste entre texto y fondo<br>
+        📐 Imagen lo más recta posible
+    </div>
+    """, unsafe_allow_html=True)
+
+
+img_file_buffer = None
+
+if fuente_imagen == "📷 Cámara":
+    img_file_buffer = st.camera_input("Toma una Foto")
+else:
+    img_file_buffer = st.file_uploader("Sube una imagen", type=["png", "jpg", "jpeg"])
 
 
 if img_file_buffer is not None:
     bytes_data = img_file_buffer.getvalue()
     cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
-    
-    if filtro == 'Con Filtro':
-         cv2_img=cv2.bitwise_not(cv2_img)
-    else:
-         cv2_img= cv2_img
-    
-        
-    img_rgb = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
-    text=pytesseract.image_to_string(img_rgb)
 
-    st.markdown("### Texto extraído")
+    if filtro == "Invertir colores":
+        cv2_img = cv2.bitwise_not(cv2_img)
+
+    elif filtro == "Escala de grises":
+        cv2_img = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2GRAY)
+        cv2_img = cv2.cvtColor(cv2_img, cv2.COLOR_GRAY2BGR)
+
+    elif filtro == "Alto contraste":
+        lab = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        cl = clahe.apply(l)
+        limg = cv2.merge((cl, a, b))
+        cv2_img = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
+
+    else:
+        cv2_img = cv2_img
+
+    img_rgb = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
+    text = pytesseract.image_to_string(img_rgb)
+
+    st.markdown("""
+    <div class="ocr-result">
+        <h3>Texto extraído</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.write(text)
